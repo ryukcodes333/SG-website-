@@ -1,0 +1,193 @@
+// Shadow Garden — Prisma Schema
+// Database: PostgreSQL via Supabase
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            BigInt    @id @default(autoincrement())
+  phone         String    @unique
+  name          String?
+  wallet        BigInt    @default(0)
+  bank          BigInt    @default(500)
+  gems          Int       @default(0)
+  xp            BigInt    @default(0)
+  level         Int       @default(1)
+  rpgXp         Int       @default(0) @map("rpg_xp")
+  rpgLevel      Int       @default(1) @map("rpg_level")
+  streak        Int       @default(0)
+  lastDaily     DateTime? @map("last_daily")
+  banned        Boolean   @default(false)
+  premium       Boolean   @default(false)
+  membership    String    @default("free")
+  role          String    @default("member")
+  title         String    @default("Newcomer")
+  bio           String    @default("")
+  profileFrame  Int       @default(1) @map("profile_frame")
+  profilePp     String?   @map("profile_pp")
+  profileBg     String?   @map("profile_bg")
+  pokemonBadges Int       @default(0) @map("pokemon_badges")
+  pokemonWins   Int       @default(0) @map("pokemon_wins")
+  pokemonLosses Int       @default(0) @map("pokemon_losses")
+  team          String    @default("Shadow")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  userCards    UserCard[]
+  userPokemon  UserPokemon[]
+  guildMember  GuildMember?
+  deckSlots    UserDeck[]
+  otpCodes     OtpCode[]
+
+  @@map("users")
+}
+
+model OtpCode {
+  id        BigInt   @id @default(autoincrement())
+  phone     String
+  code      String
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [phone], references: [phone], onDelete: Cascade)
+
+  @@map("otp_codes")
+}
+
+model Card {
+  id          BigInt    @id @default(autoincrement())
+  externalId  String?   @unique @map("external_id")
+  name        String
+  tier        String
+  series      String?
+  price       Int       @default(100)
+  imageUrl    String?   @map("image_url")
+  rarity      String?
+  uploadedBy  String?   @map("uploaded_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  userCards UserCard[]
+
+  @@index([tier])
+  @@index([name])
+  @@index([series])
+  @@map("cards")
+}
+
+model UserCard {
+  id         BigInt   @id @default(autoincrement())
+  phone      String
+  cardId     BigInt   @map("card_id")
+  obtainedAt DateTime @default(now()) @map("obtained_at")
+
+  user     User       @relation(fields: [phone], references: [phone], onDelete: Cascade)
+  card     Card       @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  deckSlot UserDeck?
+
+  @@index([phone])
+  @@map("user_cards")
+}
+
+model UserDeck {
+  id         Int    @id @default(autoincrement())
+  phone      String
+  slot       Int
+  userCardId BigInt @map("user_card_id")
+
+  user     User     @relation(fields: [phone], references: [phone], onDelete: Cascade)
+  userCard UserCard @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+
+  @@unique([phone, slot])
+  @@map("user_deck")
+}
+
+model UserPokemon {
+  id          BigInt   @id @default(autoincrement())
+  phone       String
+  pokemonId   Int      @map("pokemon_id")
+  name        String
+  types       Json     @default("[]")
+  level       Int      @default(1)
+  xp          Int      @default(0)
+  moves       Json     @default("[]")
+  abilities   Json     @default("[]")
+  ball        String   @default("pokeball")
+  slot        Int      @default(1)
+  inParty     Boolean  @default(true) @map("in_party")
+  baseXp      Int      @default(50) @map("base_xp")
+  height      String?
+  weight      String?
+  location    String?
+  hp          Int      @default(20)
+  maxHp       Int      @default(20) @map("max_hp")
+  attack      Int      @default(10)
+  defense     Int      @default(10)
+  speed       Int      @default(10)
+  wins        Int      @default(0)
+  losses      Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [phone], references: [phone], onDelete: Cascade)
+
+  @@index([phone])
+  @@map("user_pokemon")
+}
+
+model Guild {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @unique
+  leaderPhone String   @map("leader_phone")
+  description String?  @default("")
+  emblem      String?
+  level       Int      @default(1)
+  treasury    BigInt   @default(0)
+  gems        Int      @default(0)
+  wins        Int      @default(0)
+  losses      Int      @default(0)
+  memberCount Int      @default(1) @map("member_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  members GuildMember[]
+
+  @@map("guilds")
+}
+
+model GuildMember {
+  id        BigInt   @id @default(autoincrement())
+  guildId   BigInt   @map("guild_id")
+  phone     String   @unique
+  isLeader  Boolean  @default(false) @map("is_leader")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [phone], references: [phone], onDelete: Cascade)
+
+  @@map("guild_members")
+}
+
+model Inventory {
+  id       BigInt @id @default(autoincrement())
+  phone    String
+  item     String
+  quantity Int    @default(1)
+
+  @@unique([phone, item])
+  @@map("inventory")
+}
+
+model ShopListing {
+  id         Int      @id @default(autoincrement())
+  phone      String
+  userCardId Int      @map("user_card_id")
+  price      Int      @default(0)
+  listedAt   DateTime @default(now()) @map("listed_at")
+
+  @@map("shop_listings")
+}
